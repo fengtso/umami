@@ -3,6 +3,11 @@ umami
 
 Reading List App
 
+## SQLite Viewer
+No need to install SQLite on Mac. However, it will be useful to have a SQLite viewer to see the table data
+http://sqlitestudio.pl/
+The database file path is `umami/flask-restful/db/umami.db`
+
 ## Install Python packages
 1. `pip install -r requirements.txt`
 
