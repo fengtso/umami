@@ -8,7 +8,8 @@ import time
 
 app = Flask(__name__)
 api = restful.Api(app)
-
+final_phase = 'c5'
+phase_delta = [('c2', 1), ('c3', 4), ('c4', 9)]
 
 def connect_db():
     db_path = './db/umami.db'
@@ -101,6 +102,31 @@ class GetPushedTasksAPI(restful.Resource):
             print e
 
 
+class GetPendingTaskAPI(restful.Resource):
+    def get(self):
+        pending_tasks = []
+        db_conn = connect_db()
+        db_cur = db_conn.cursor()
+
+        sql_stmt = 'SELECT url, tag, phase, added_time FROM tasks WHERE phase is not \"c0\" AND phase is not \"{final_phase}\"'.format(
+                final_phase=final_phase
+            )
+        try:
+            db_cur.execute(sql_stmt)
+            db_conn.commit()
+            for t in db_cur.fetchall():
+                pending_tasks.append({
+                    'url': t[0],
+                    'tag': t[1],
+                    'phase': t[2],
+                    'added_time': t[3]
+                })
+        except Exception, e:
+            print e
+
+        return {'results': pending_tasks}
+
+
 class GetRequiredTaskAPI(restful.Resource):
     def get(self):
         required_tasks = dict()
@@ -171,7 +197,7 @@ class CompleteTaskAPI(restful.Resource):
                     curr_time=now,
                     url=task_data['url']
             )
-        elif next_phase == 'c5':
+        elif next_phase == final_phase:
             sql_stmt = 'UPDATE tasks SET phase=\"{phase}\", completed_time=\"{curr_time}\" WHERE url=\"{url}\"'.format(
                     phase=next_phase, 
                     curr_time=now,
@@ -240,7 +266,7 @@ api.add_resource(GetPushedTasksAPI, '/getPushedTasks')
 api.add_resource(GetRequiredTaskAPI, '/getRequiredTasks')
 api.add_resource(CompleteTaskAPI, '/completeTask')
 api.add_resource(DeleteTaskAPI, '/deleteTask')
-
+api.add_resource(GetPendingTaskAPI, '/getPendingTasks')
 
 if __name__ == '__main__':
     init_db()

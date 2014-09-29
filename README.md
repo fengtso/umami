@@ -23,3 +23,6 @@ Reading List App
 
 ## Get required tasks
 1. `http://localhost:5000/getRequiredTasks`
+
+## Get pending tasks
+1. `http://localhost:5000/getPendingTasks`
