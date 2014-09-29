@@ -12,8 +12,13 @@ api = restful.Api(app)
 
 def connect_db():
     db_path = './db/umami.db'
-    db_conn = sqlite3.connect(db_path)
-    return db_conn
+    try:
+        db_conn = sqlite3.connect(db_path)
+        return db_conn
+    except Exception, e:
+        print e
+
+    return None
  
 
 def init_db():
@@ -22,11 +27,13 @@ def init_db():
 
     db_conn = sqlite3.connect(db_path)
     if db_conn:
-        db_cur = db_conn.cursor()
-        db_cur.execute(sql_stmt)
-        db_conn.commit()
-
-    db_conn.close()
+        try:
+            db_cur = db_conn.cursor()
+            db_cur.execute(sql_stmt)
+            db_conn.commit()
+            db_conn.close()
+        except Exception, e:
+            print e
 
 
 class PushTaskAPI(restful.Resource):
@@ -38,29 +45,34 @@ class PushTaskAPI(restful.Resource):
         sql_stmt = 'SELECT COUNT(*) FROM tasks WHERE url IS \"{url}\"'.format(
                     url=task_info['url']
                 )
-        db_cur.execute(sql_stmt)
-        result = db_cur.fetchone()
-        if result[0] != 0:
-            db_conn.close()
-            return False
+        try:
+            db_cur.execute(sql_stmt)
+            result = db_cur.fetchone()
+            if result[0] != 0:
+                db_conn.close()
+                return False
+        except Exception, e:
+            print e
 
         # Insert
         now = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')
-
         sql_stmt = 'INSERT INTO tasks (url, tag, phase, added_time) VALUES (\"{url}\", \"{tag}\", \"c0\", \"{time}\")'.format(
                     url=task_info['url'],
                     tag=task_info['tag'],
                     time=now
                 )
-        db_cur.execute(sql_stmt)
-        db_conn.commit()
-        db_conn.close()
-        return True
+        try:
+            db_cur.execute(sql_stmt)
+            db_conn.commit()
+            db_conn.close()
+            return True
+        except Exception, e:
+            print e
 
     def post(self):
         task_data = request.get_json(force=True)
         success = self.push_task(task_data)
-        return {'results': 'success'} if success else {'results': 'failed'}
+        return {'results': 'pushed'} if success else {'results': 'failed'}
     
     def options(self):
         pass
@@ -74,15 +86,19 @@ class GetPushedTasksAPI(restful.Resource):
 
         # c0
         sql_stmt = 'SELECT url, tag, added_time FROM tasks WHERE phase is \"c0\"'
-        db_cur.execute(sql_stmt)
-        results = []
-        for t in db_cur.fetchall():
-            pushed_tasks.append({
-                'url': t[0],
-                'tag': t[1],
-                'added_time': t[2]
-            })
-        return {'results': pushed_tasks}
+
+        try:
+            db_cur.execute(sql_stmt)
+            results = []
+            for t in db_cur.fetchall():
+                pushed_tasks.append({
+                    'url': t[0],
+                    'tag': t[1],
+                    'added_time': t[2]
+                })
+            return {'results': pushed_tasks}
+        except Exception, e:
+            print e
 
 
 class GetRequiredTaskAPI(restful.Resource):
@@ -100,20 +116,22 @@ class GetRequiredTaskAPI(restful.Resource):
         for c, d in phase_delta:
             results[c] = []
             sql_stmt = 'SELECT url, tag, phase_one_time FROM tasks WHERE phase is \"c1\"'
-            db_cur.execute(sql_stmt)
-            for t in db_cur.fetchall():
-                delta = datetime.datetime.strptime(now, date_format) - datetime.datetime.strptime(t[2], date_format)
-                if delta.days == d:
-                    results[c].append({
-                        'url': t[0],
-                        'tag': t[1]
-                    })
+            try:
+                db_cur.execute(sql_stmt)
+                for t in db_cur.fetchall():
+                    delta = datetime.datetime.strptime(now, date_format) - datetime.datetime.strptime(t[2], date_format)
+                    if delta.days == d:
+                        results[c].append({
+                            'url': t[0],
+                            'tag': t[1]
+                        })
+            except Exception, e:
+                print e
 
-        for k, v in results.items():
-            required_tasks[k] = v
+            for k, v in results.items():
+                required_tasks[k] = v
 
         db_conn.close()
-
         return {'results': required_tasks}
         
 
@@ -132,13 +150,17 @@ class CompleteTaskAPI(restful.Resource):
         sql_stmt = 'SELECT phase FROM tasks WHERE url IS \"{url}\"'.format(
                 url=task_data['url']
             )
-        db_cur.execute(sql_stmt)
-        result = db_cur.fetchone()
 
-        # url doesn't exist
-        if result == None:
-            db_conn.close()
-            return False
+        try:
+            db_cur.execute(sql_stmt)
+            result = db_cur.fetchone()
+
+            # url doesn't exist
+            if result == None:
+                db_conn.close()
+                return False
+        except Exception, e:
+            print e
 
         next_phase = self.get_next_phase(result[0])
 
@@ -149,16 +171,26 @@ class CompleteTaskAPI(restful.Resource):
                     curr_time=now,
                     url=task_data['url']
             )
+        elif next_phase == 'c5':
+            sql_stmt = 'UPDATE tasks SET phase=\"{phase}\", completed_time=\"{curr_time}\" WHERE url=\"{url}\"'.format(
+                    phase=next_phase, 
+                    curr_time=now,
+                    url=task_data['url']
+            )
         else:
             sql_stmt = 'UPDATE tasks SET phase=\"{phase}\" WHERE url=\"{url}\"'.format(
                     phase=next_phase, 
                     url=task_data['url']
             )
 
-        db_cur.execute(sql_stmt)
-        db_conn.commit()
-        db_conn.close()
-        return True
+        try:
+            db_cur.execute(sql_stmt)
+            db_conn.commit()
+            db_conn.close()
+            return True
+        except Exception, e:
+            print e
+            return False
 
     def post(self):
         task_data = request.get_json(force=True)
@@ -166,11 +198,49 @@ class CompleteTaskAPI(restful.Resource):
         return {'results': 'completed'} if success else {'results': 'failed'}
 
 
+class DeleteTaskAPI(restful.Resource):
+    def post(self):
+        task_data = request.get_json(force=True)
+        success = self.delete_task(task_data)
+        return {'results': 'deleted'} if success else {'results': 'failed'}
+
+    def delete_task(self, task_data):
+        db_conn = connect_db()
+        db_cur = db_conn.cursor()
+
+        # Check duplicate 
+        sql_stmt = 'SELECT COUNT(*) FROM tasks WHERE url IS \"{url}\"'.format(
+                    url=task_data['url']
+                )
+        try:
+            db_cur.execute(sql_stmt)
+            result = db_cur.fetchone()
+            if result[0] == 0:
+                db_conn.close()
+                return False
+        except Exception, e:
+            print e
+
+        # Delete url
+        sql_stmt = 'DELETE FROM tasks WHERE url IS \"{url}\"'.format(
+                url=task_data['url']
+            )
+        try:
+            db_cur.execute(sql_stmt)
+            db_conn.commit()
+            db_conn.close()
+            return True
+        except Exception, e:
+            print e
+        return False
+
+
 api.add_resource(PushTaskAPI, '/pushTask')
 api.add_resource(GetPushedTasksAPI, '/getPushedTasks')
 api.add_resource(GetRequiredTaskAPI, '/getRequiredTasks')
 api.add_resource(CompleteTaskAPI, '/completeTask')
-    
+api.add_resource(DeleteTaskAPI, '/deleteTask')
+
 
 if __name__ == '__main__':
     init_db()

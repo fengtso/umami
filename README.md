@@ -15,6 +15,9 @@ Reading List App
 ## Complete a task
 1. `python client.py --complete --url=<url>`
 
+## Delete a task
+1. `python client.py --delete --url=<url>`
+
 ## Get pushed tasks
 1. `http://localhost:5000/getPushedTasks`
 

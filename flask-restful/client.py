@@ -1,6 +1,6 @@
 """
 Usage:
-    client.py [--push --url=<url> --tag=<tag>] [--complete --url=<url>]
+    client.py [--push --url=<url> --tag=<tag>] [--complete --url=<url>] [--delete --url=<url>]
 
     client.py (-h | --help)
 """
@@ -24,12 +24,11 @@ if __name__ == '__main__':
             print 'url is not available'
             sys.exit()
 
-        if len(tag) == 0 or len(url[0]) == 0:
+        if len(tag) == 0 or len(tag[0]) == 0:
             print 'tag is not available'
             sys.exit() 
 
         url = url[0]
-        tag = tag[0]
         data =  {
                     'url': url, 
                     'tag': tag
@@ -38,15 +37,29 @@ if __name__ == '__main__':
         r = post(api_url, data=json.dumps(data), headers=headers)
         print r.text
 
-    # Complete task
+    # Complete a task
     if args['--complete']:
         url = args['--url']
         if len(url) == 0 or len(url[0]) == 0:
             print 'url is not available'
             sys.exit()
-            
+        
+        url = url[0]
         data =  {'url': url}
         api_url = "http://localhost:5000/completeTask"
+        r = post(api_url, data=json.dumps(data), headers=headers)
+        print r.text
+
+    # Delete a task
+    if args['--delete']:
+        url = args['--url']
+        if len(url) == 0 or len(url[0]) == 0:
+            print 'url is not available'
+            sys.exit()
+
+        url = url[0]
+        data =  {'url': url}
+        api_url = "http://localhost:5000/deleteTask"
         r = post(api_url, data=json.dumps(data), headers=headers)
         print r.text
 
